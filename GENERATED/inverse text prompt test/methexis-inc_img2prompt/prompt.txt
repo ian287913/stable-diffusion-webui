@@ -1,0 +1,2 @@
+a goldfish with a black background, computer graphics by Grillo Demo, reddit, precisionism, 2d game art, behance hd, rendered in cinema4d
+Steps: 40, Sampler: Euler a, CFG scale: 7, Seed: 1, Size: 512x512, Model hash: a9263745
