@@ -1,0 +1,2 @@
+a close up of a fish on a black background, an illustration of, disney pixar 3d style, beautiful render of tang dynasty, tinkerbell, professional iphone photo, album photo, mascot illustration, video game asset file, velma, a beautiful artwork illustration, tourist photo, attractive photo
+Steps: 40, Sampler: Euler a, CFG scale: 7, Seed: 1, Size: 512x512, Model hash: a9263745

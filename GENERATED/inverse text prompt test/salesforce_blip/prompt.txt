@@ -1,0 +1,2 @@
+a goldfish with a black background
+Steps: 40, Sampler: Euler a, CFG scale: 7, Seed: 1, Size: 512x512, Model hash: a9263745
