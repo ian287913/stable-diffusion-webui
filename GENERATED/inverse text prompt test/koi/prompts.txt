@@ -1,0 +1,14 @@
+A detailed 3d character design of one koi character in the realistic style, black background,
+detailed fish scale,
+concept artwork, character design,
+8k, uhd, high definition,
+unreal 5, daz, octane render
+Negative prompt: ((duplicate))
+((culled))
+(((out of frame)))
+(((deformed)))
+((bad anatomy))
+((extra eyes))
+((without head))
+((disfigured))
+Steps: 60, Sampler: Euler a, CFG scale: 10, Seed: 1, Size: 512x512, Model hash: a9263745, Denoising strength: 1, Mask blur: 4
