@@ -6,6 +6,7 @@ import random
 import io
 import base64
 import json
+import time
 from io import BytesIO
 from PIL import Image
 from time import gmtime, strftime
@@ -108,11 +109,11 @@ def generate_image(target_path):
     generated_image_count = 0
 
     payloads = []
-    for dns_idx, dns in enumerate(parameters.PARAMETERS["denoising_strength"]):
-        for cfg_idx, cfg in enumerate(parameters.PARAMETERS["cfg_scale"]):
+    for cfg_idx, cfg in enumerate(parameters.PARAMETERS["cfg_scale"]):
+        for dns_idx, dns in enumerate(parameters.PARAMETERS["denoising_strength"]):
             for step_idx, step in enumerate(parameters.PARAMETERS["steps"]):
                 image_list = []
-                image_name = f'cfg={cfg} dns={dns} step={step}'
+                image_name = f'cfg={float(cfg):4.2f} dns={float(dns):4.2f} step={float(step):4.2f}'
                 start_seed = parameters.PARAMETERS["seed"]
                 for s in range(0, parameters.PARAMETERS["batch_width"]**2):
                     seed = start_seed + s
@@ -188,5 +189,11 @@ def generate_image(target_path):
 
 
 if __name__ == '__main__':
+    start_time = time.time()
+    
     target_path = prepare_environment()
     generate_image(target_path)
+
+    end_time = time.time()
+    time_lapsed = end_time - start_time
+    print(f'Total time elapsed: {time_lapsed}s')
