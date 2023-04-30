@@ -13,14 +13,21 @@ from time import gmtime, strftime
 import parameters
 
 
-TEXT_PROMPT = 'A detailed 3d character design of one (goldfish) character in the style of pixar'
-TEXT_PROMPT_NEGATIVE = ''
-
 # image route (relative)
 IMAGE_FOLDER = '/images/'
 
 # stable diffusion api url
 URL = "http://127.0.0.1:7860"
+
+# progress
+PROGRESS_GOAL = 0
+PROGRESS_COUNT = 0
+
+def update_progress():
+    global PROGRESS_GOAL
+    global PROGRESS_COUNT
+    PROGRESS_COUNT += 1
+    print(f'{PROGRESS_COUNT} of {PROGRESS_GOAL} images generated. ({(100.0 * float(PROGRESS_COUNT) / float(PROGRESS_GOAL)):6.2f}%)', flush=True)
 
 def prepare_environment():
     base_path = os.getcwd()
@@ -53,11 +60,8 @@ def images2grid(imgs, rows, cols):
         grid.paste(img, box=(i%cols*w, i//cols*h))
     return grid
 
-def update_progress(current, target):
-    print(f'{current} of {target} images generated. ({(100.0 * float(current) / float(target)):6.2f}%)', flush=True)
-
 def generate_single_image(payload):
-    response = requests.post(url=f'http://127.0.0.1:7860/sdapi/v1/img2img', json=payload)
+    response = requests.post(url=f'{URL}/sdapi/v1/img2img', json=payload)
     status_code = response.status_code
     r = response.json()
 
@@ -78,7 +82,7 @@ def generate_single_image(payload):
             # png_payload = {
             #     "image": "data:image/png;base64," + i
             # }
-            # response2 = requests.post(url=f'http://127.0.0.1:7860/sdapi/v1/png-info', json=png_payload)
+            # response2 = requests.post(url=f'{URL}/sdapi/v1/png-info', json=png_payload)
             # print(f'png info = {response2.json().get("info")}')
     
     if (len(image_list) == 0):
@@ -87,7 +91,7 @@ def generate_single_image(payload):
         print(f'size of image_list should be 1 but getting {len(image_list)}!')
     return image_list[0]
 
-def generate_image(target_path):
+def generate_images(target_path, text_prompt):
     
     # load prompt image from png to base64 format
     prompt_image = Image.open(f'.\{parameters.PARAMETERS["image_prompt"]}')
@@ -101,12 +105,7 @@ def generate_image(target_path):
     with open(f"{target_path}parameters.json", "w") as fp:
         json.dump(parameters.PARAMETERS, fp)
 
-    # progress settings
-    total_image_count = len(parameters.PARAMETERS["denoising_strength"]) * \
-        len(parameters.PARAMETERS["cfg_scale"]) * \
-        len(parameters.PARAMETERS["steps"]) * \
-        parameters.PARAMETERS["batch_width"]**2
-    generated_image_count = 0
+    
 
     payloads = []
     for cfg_idx, cfg in enumerate(parameters.PARAMETERS["cfg_scale"]):
@@ -121,7 +120,7 @@ def generate_image(target_path):
                     # set payload
                     payload = {}
                     payload["init_images"] = [prompt_image_b64]
-                    payload["prompt"] = parameters.PARAMETERS["prompt"]
+                    payload["prompt"] = text_prompt
                     payload["negative_prompt"] = parameters.PARAMETERS["negative_prompt"]
                     payload["sampler_index"] = parameters.PARAMETERS["sampler_index"]
                     ##payload["include_init_images"] = parameters.PARAMETERS["include_init_images"]
@@ -142,8 +141,7 @@ def generate_image(target_path):
                     image_list.append(image)
 
                     # update progress
-                    generated_image_count += 1
-                    update_progress(generated_image_count, total_image_count)
+                    update_progress()
                 
                 # export images
                 image_grid = images2grid(image_list, parameters.PARAMETERS["batch_width"], parameters.PARAMETERS["batch_width"])
@@ -188,11 +186,26 @@ def generate_image(target_path):
             image.save(target_path + '(' + str(idx) + ').png')#, pnginfo=pnginfo)
 
 
+def generate_all_species(target_path):
+    global PROGRESS_GOAL
+    # progress settings
+    PROGRESS_GOAL = len(parameters.PARAMETERS["prompt_species"]) * \
+        len(parameters.PARAMETERS["denoising_strength"]) * \
+        len(parameters.PARAMETERS["cfg_scale"]) * \
+        len(parameters.PARAMETERS["steps"]) * \
+        parameters.PARAMETERS["batch_width"]**2
+
+    for idx, species in enumerate(parameters.PARAMETERS["prompt_species"]):
+        species_target_path = target_path + f'{species}/'
+        os.makedirs(species_target_path, exist_ok=True)
+        text_prompt = parameters.PARAMETERS["prompt"].replace("#SPECIES#", species)
+        generate_images(species_target_path, text_prompt)
+
 if __name__ == '__main__':
     start_time = time.time()
     
     target_path = prepare_environment()
-    generate_image(target_path)
+    generate_all_species(target_path)
 
     end_time = time.time()
     time_lapsed = end_time - start_time
