@@ -14,6 +14,14 @@ concept artwork, character design,
 8k, uhd, high definition,
 unreal 5, daz, octane render
 
+//////////////////// NEGATIVE ///////////////////////////
 
-
+((duplicate))
+((culled))
+(((out of frame)))
+(((deformed)))
+((bad anatomy))
+((extra eyes))
+((without head))
+((disfigured))
 
