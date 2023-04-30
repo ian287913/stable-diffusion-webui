@@ -5,6 +5,7 @@ import asyncio
 import random
 import io
 import base64
+import json
 from io import BytesIO
 from PIL import Image
 from time import gmtime, strftime
@@ -52,7 +53,7 @@ def images2grid(imgs, rows, cols):
     return grid
 
 def update_progress(current, target):
-    print(f'{current} of {target} images generated. ({100.0 * current / target}%)')
+    print(f'{current} of {target} images generated. ({(100.0 * float(current) / float(target)):6.2f}%)', flush=True)
 
 def generate_single_image(payload):
     response = requests.post(url=f'http://127.0.0.1:7860/sdapi/v1/img2img', json=payload)
@@ -72,6 +73,12 @@ def generate_single_image(payload):
         for idx, i in enumerate(r['images']):
             image = Image.open(io.BytesIO(base64.b64decode(i.split(",",1)[0])))
             image_list.append(image)
+
+            # png_payload = {
+            #     "image": "data:image/png;base64," + i
+            # }
+            # response2 = requests.post(url=f'http://127.0.0.1:7860/sdapi/v1/png-info', json=png_payload)
+            # print(f'png info = {response2.json().get("info")}')
     
     if (len(image_list) == 0):
         return None
@@ -80,16 +87,23 @@ def generate_single_image(payload):
     return image_list[0]
 
 def generate_image(target_path):
-    prompt_image = Image.open(r'.\image prompt gray.png')
     
+    # load prompt image from png to base64 format
+    prompt_image = Image.open(f'.\{parameters.PARAMETERS["image_prompt"]}')
+    prompt_image = prompt_image.convert("RGB")
     output_buffer = BytesIO()
     prompt_image.save(output_buffer, format='JPEG')
     byte_data = output_buffer.getvalue()
     prompt_image_b64 = base64.b64encode(byte_data).decode('ascii')
 
+    # output the config json (parameters)
+    with open(f"{target_path}parameters.json", "w") as fp:
+        json.dump(parameters.PARAMETERS, fp)
+
+    # progress settings
     total_image_count = len(parameters.PARAMETERS["denoising_strength"]) * \
-        len(enumerate(parameters.PARAMETERS["cfg_scale"])) * \
-        len(enumerate(parameters.PARAMETERS["steps"])) * \
+        len(parameters.PARAMETERS["cfg_scale"]) * \
+        len(parameters.PARAMETERS["steps"]) * \
         parameters.PARAMETERS["batch_width"]**2
     generated_image_count = 0
 
@@ -109,11 +123,11 @@ def generate_image(target_path):
                     payload["prompt"] = parameters.PARAMETERS["prompt"]
                     payload["negative_prompt"] = parameters.PARAMETERS["negative_prompt"]
                     payload["sampler_index"] = parameters.PARAMETERS["sampler_index"]
-                    payload["include_init_images"] = parameters.PARAMETERS["include_init_images"]
+                    ##payload["include_init_images"] = parameters.PARAMETERS["include_init_images"]
 
                     # set payload (in list)
                     payload["denoising_strength"] = dns
-                    ##payload["image_cfg_scale"] = parameters.PARAMETERS["cfg_scale"][0]
+                    ##payload["image_cfg_scale"] = cfg
                     payload["cfg_scale"] = cfg
                     payload["steps"] = step
 
@@ -125,10 +139,14 @@ def generate_image(target_path):
                     image = generate_single_image(payload)
                     image.save(target_path + image_name + ' (' + str(s) + ').png')
                     image_list.append(image)
+
+                    # update progress
+                    generated_image_count += 1
+                    update_progress(generated_image_count, total_image_count)
                 
                 # export images
                 image_grid = images2grid(image_list, parameters.PARAMETERS["batch_width"], parameters.PARAMETERS["batch_width"])
-                image_grid.save(target_path + 'GRID ' + image_name + '.png')
+                image_grid.save(target_path + '_GRID ' + image_name + '.png')
                 
 
     return
