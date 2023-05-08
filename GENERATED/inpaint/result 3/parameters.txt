@@ -1,0 +1,27 @@
+A detailed 3d character design of one (tuna) character in the style of pixar, front view, black background, detailed fish scale, concept artwork by pixar, character design by pixar, 8k, uhd, high definition, unreal 5, daz, octane render
+
+((duplicate)) ((culled)) (((out of frame))) (((deformed))) ((bad anatomy)) ((extra eyes)) ((without head)) ((disfigured))
+
+Mask blur:
+4
+
+Masked content:
+fill
+
+inpaint area:
+whole picture
+
+Sampling method:
+Euler a
+
+steps:
+50
+
+CFG:
+11
+
+Denoise:
+0.6
+
+Seed:
+1
