@@ -201,11 +201,98 @@ def generate_all_species(target_path):
         text_prompt = parameters.PARAMETERS["prompt"].replace("#SPECIES#", species)
         generate_images(species_target_path, text_prompt)
 
+def batch_inpaint_images(target_path):
+    global PROGRESS_GOAL
+    # progress settings
+    PROGRESS_GOAL = len(parameters.PARAMETERS["denoising_strength"]) * \
+        len(parameters.PARAMETERS["cfg_scale"]) * \
+        len(parameters.PARAMETERS["steps"]) * \
+        parameters.PARAMETERS["batch_width"]**2
+
+    inpaint_images(target_path)
+
+
+def inpaint_images(target_path):
+    # load prompt image from png to base64 format
+    prompt_image = load_image_as_b64ascii(f'.\{parameters.PARAMETERS["image_prompt"]}')
+    mask = load_image_as_b64ascii(f'.\{parameters.PARAMETERS["mask"]}')
+
+    # output the config json (parameters)
+    with open(f"{target_path}parameters.json", "w") as fp:
+        json.dump(parameters.PARAMETERS, fp)
+
+    payloads = []
+    for cfg_idx, cfg in enumerate(parameters.PARAMETERS["cfg_scale"]):
+        for dns_idx, dns in enumerate(parameters.PARAMETERS["denoising_strength"]):
+            for step_idx, step in enumerate(parameters.PARAMETERS["steps"]):
+                image_list = []
+                image_name = f'cfg={float(cfg):4.2f} dns={float(dns):4.2f} step={float(step):4.2f}'
+                start_seed = parameters.PARAMETERS["seed"]
+                for s in range(0, parameters.PARAMETERS["batch_width"]**2):
+                    seed = start_seed + s
+
+                    # set payload
+                    payload = {}
+                    payload["init_images"] = [prompt_image]
+                    payload["prompt"] = parameters.PARAMETERS["prompt"]
+                    payload["negative_prompt"] = parameters.PARAMETERS["negative_prompt"]
+                    payload["sampler_index"] = parameters.PARAMETERS["sampler_index"]
+                    ##payload["include_init_images"] = parameters.PARAMETERS["include_init_images"]
+
+                    # set INPAINT related params
+                    # https://github.com/AUTOMATIC1111/stable-diffusion-webui/discussions/9739
+                    payload["mask"] = mask
+                    payload["mask_blur"] = 0
+
+                    # choices=['fill', 'original', 'latent noise', 'latent nothing']
+                    payload["inpainting_fill"] = 0
+
+                    # choices=['Inpaint masked', 'Inpaint not masked']
+                    payload["inpainting_mask_invert"] = 1
+
+                    # choices=["Whole picture", "Only masked"]
+                    payload["inpaint_full_res"] = 0
+
+
+                    # set payload (in list)
+                    payload["denoising_strength"] = dns
+                    ##payload["image_cfg_scale"] = cfg
+                    payload["cfg_scale"] = cfg
+                    payload["steps"] = step
+
+                    # set payload (in batch)
+                    payload["batch_size"] = 1
+                    payload["seed"] = seed
+
+                    # generate image
+                    image = generate_single_image(payload)
+                    image.save(target_path + image_name + ' (' + str(s) + ').png')
+                    image_list.append(image)
+
+                    # update progress
+                    update_progress()
+                
+                # export images
+                image_grid = images2grid(image_list, parameters.PARAMETERS["batch_width"], parameters.PARAMETERS["batch_width"])
+                image_grid.save(target_path + '_GRID ' + image_name + '.png')
+
+    return
+
+def load_image_as_b64ascii(image_path):
+    image = Image.open(image_path)
+    image = image.convert("RGB")
+    output_buffer = BytesIO()
+    image.save(output_buffer, format='JPEG')
+    byte_data = output_buffer.getvalue()
+    image_b64 = base64.b64encode(byte_data).decode('ascii')
+    return image_b64
+
 if __name__ == '__main__':
     start_time = time.time()
     
     target_path = prepare_environment()
-    generate_all_species(target_path)
+    batch_inpaint_images(target_path)
+    ##generate_all_species(target_path)
 
     end_time = time.time()
     time_lapsed = end_time - start_time

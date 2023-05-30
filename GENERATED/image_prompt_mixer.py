@@ -12,6 +12,7 @@ from PIL import Image
 from time import gmtime, strftime
 import parameters
 
+# set all non-black color to a random color
 
 # image route (relative)
 IMAGE_FOLDER = '/images/'
