@@ -17,7 +17,7 @@ PARAMETERS = {
     # generate total batch_width**2 images
     'batch_width' : 3,
     'seed' : 1,
-    "sampler_index": "Euler a",
+    "sampler_index": "Euler",
     'include_init_images' : True
     #sampler_name
     #mask_blur = 4
