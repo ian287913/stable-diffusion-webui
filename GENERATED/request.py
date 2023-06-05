@@ -137,7 +137,7 @@ def generate_images(target_path, text_prompt):
 
                     # generate image
                     image = generate_single_image(payload)
-                    image.save(target_path + image_name + ' (' + str(s) + ').png')
+                    image.save(target_path + image_name + ' (' + str(seed) + ').png')
                     image_list.append(image)
 
                     # update progress
