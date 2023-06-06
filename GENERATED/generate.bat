@@ -1,2 +1,0 @@
-python "request.py"
-pause
