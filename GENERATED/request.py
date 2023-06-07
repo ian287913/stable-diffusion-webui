@@ -29,7 +29,7 @@ def update_progress():
     PROGRESS_COUNT += 1
     print(f'{PROGRESS_COUNT} of {PROGRESS_GOAL} images generated. ({(100.0 * float(PROGRESS_COUNT) / float(PROGRESS_GOAL)):6.2f}%)', flush=True)
 
-def prepare_environment():
+def prepare_environment(sd_model_checkpoint):
     base_path = os.getcwd()
     target_path = base_path + IMAGE_FOLDER + '/' + strftime("%Y%m%d_%H%M%S", gmtime()) + '/'
 
@@ -41,10 +41,17 @@ def prepare_environment():
     # set model
     print('set model for generation', flush=True)
     payload = {
-        "sd_model_checkpoint": parameters.PARAMETERS['sd_model_checkpoint'][0],
+        "sd_model_checkpoint": sd_model_checkpoint,
     }
-    response = requests.post(url=f'{URL}/sdapi/v1/options', json=payload)
-    print('finish model setting!', flush=True)
+
+    try:
+        response = requests.post(url=f'{URL}/sdapi/v1/options', json=payload)
+    except Exception as err:
+        print(f"An exception is raised when posting request...")
+        print(f"Unexpected {err}, {type(err)}")
+
+    print('finished model setting!', flush=True)
+    print(f'target_path: {target_path}', flush=True)
 
     return target_path
 
@@ -91,10 +98,10 @@ def generate_single_image(payload):
         print(f'size of image_list should be 1 but getting {len(image_list)}!')
     return image_list[0]
 
-def generate_images(target_path, text_prompt):
+def generate_images(target_path, text_prompt, params):
     
     # load prompt image from png to base64 format
-    prompt_image = Image.open(f'.\{parameters.PARAMETERS["image_prompt"]}')
+    prompt_image = Image.open(f'.\{params["image_prompt"]}')
     prompt_image = prompt_image.convert("RGB")
     output_buffer = BytesIO()
     prompt_image.save(output_buffer, format='JPEG')
@@ -103,26 +110,26 @@ def generate_images(target_path, text_prompt):
 
     # output the config json (parameters)
     with open(f"{target_path}parameters.json", "w") as fp:
-        json.dump(parameters.PARAMETERS, fp)
+        json.dump(params, fp)
 
     
 
     payloads = []
-    for cfg_idx, cfg in enumerate(parameters.PARAMETERS["cfg_scale"]):
-        for dns_idx, dns in enumerate(parameters.PARAMETERS["denoising_strength"]):
-            for step_idx, step in enumerate(parameters.PARAMETERS["steps"]):
+    for cfg_idx, cfg in enumerate(params["cfg_scale"]):
+        for dns_idx, dns in enumerate(params["denoising_strength"]):
+            for step_idx, step in enumerate(params["steps"]):
                 image_list = []
                 image_name = f'cfg={float(cfg):4.2f} dns={float(dns):4.2f} step={float(step):4.2f}'
-                start_seed = parameters.PARAMETERS["seed"]
-                for s in range(0, parameters.PARAMETERS["batch_width"]**2):
+                start_seed = params["seed"]
+                for s in range(0, params["batch_width"]**2):
                     seed = start_seed + s
 
                     # set payload
                     payload = {}
                     payload["init_images"] = [prompt_image_b64]
                     payload["prompt"] = text_prompt
-                    payload["negative_prompt"] = parameters.PARAMETERS["negative_prompt"]
-                    payload["sampler_index"] = parameters.PARAMETERS["sampler_index"]
+                    payload["negative_prompt"] = params["negative_prompt"]
+                    payload["sampler_index"] = params["sampler_index"]
                     ##payload["include_init_images"] = parameters.PARAMETERS["include_init_images"]
 
                     # set payload (in list)
@@ -144,7 +151,7 @@ def generate_images(target_path, text_prompt):
                     update_progress()
                 
                 # export images
-                image_grid = images2grid(image_list, parameters.PARAMETERS["batch_width"], parameters.PARAMETERS["batch_width"])
+                image_grid = images2grid(image_list, params["batch_width"], params["batch_width"])
                 image_grid.save(target_path + '_GRID ' + image_name + '.png')
                 
 
@@ -186,57 +193,62 @@ def generate_images(target_path, text_prompt):
             image.save(target_path + '(' + str(idx) + ').png')#, pnginfo=pnginfo)
 
 
-def generate_all_species(target_path):
+def generate_all_species(params):
+    target_path = prepare_environment(params['sd_model_checkpoint'][0])
+
+
     global PROGRESS_GOAL
     # progress settings
-    PROGRESS_GOAL = len(parameters.PARAMETERS["prompt_species"]) * \
-        len(parameters.PARAMETERS["denoising_strength"]) * \
-        len(parameters.PARAMETERS["cfg_scale"]) * \
-        len(parameters.PARAMETERS["steps"]) * \
-        parameters.PARAMETERS["batch_width"]**2
+    PROGRESS_GOAL = len(params["prompt_species"]) * \
+        len(params["denoising_strength"]) * \
+        len(params["cfg_scale"]) * \
+        len(params["steps"]) * \
+        params["batch_width"]**2
 
-    for idx, species in enumerate(parameters.PARAMETERS["prompt_species"]):
+    for idx, species in enumerate(params["prompt_species"]):
         species_target_path = target_path + f'{species}/'
         os.makedirs(species_target_path, exist_ok=True)
-        text_prompt = parameters.PARAMETERS["prompt"].replace("#SPECIES#", species)
-        generate_images(species_target_path, text_prompt)
+        text_prompt = params["prompt"].replace("#SPECIES#", species)
+        generate_images(species_target_path, text_prompt, params)
 
-def batch_inpaint_images(target_path):
+def batch_inpaint_images(params):
+    target_path = prepare_environment(params['sd_model_checkpoint'][0])
+
     global PROGRESS_GOAL
     # progress settings
-    PROGRESS_GOAL = len(parameters.PARAMETERS["denoising_strength"]) * \
-        len(parameters.PARAMETERS["cfg_scale"]) * \
-        len(parameters.PARAMETERS["steps"]) * \
-        parameters.PARAMETERS["batch_width"]**2
+    PROGRESS_GOAL = len(params["denoising_strength"]) * \
+        len(params["cfg_scale"]) * \
+        len(params["steps"]) * \
+        params["batch_width"]**2
 
-    inpaint_images(target_path)
+    inpaint_images(target_path, params)
 
 
-def inpaint_images(target_path):
+def inpaint_images(target_path, params):
     # load prompt image from png to base64 format
-    prompt_image = load_image_as_b64ascii(f'.\{parameters.PARAMETERS["image_prompt"]}')
-    mask = load_image_as_b64ascii(f'.\{parameters.PARAMETERS["mask"]}')
+    prompt_image = load_image_as_b64ascii(f'.\{params["image_prompt"]}')
+    mask = load_image_as_b64ascii(f'.\{params["mask"]}')
 
     # output the config json (parameters)
     with open(f"{target_path}parameters.json", "w") as fp:
-        json.dump(parameters.PARAMETERS, fp)
+        json.dump(params, fp)
 
     payloads = []
-    for cfg_idx, cfg in enumerate(parameters.PARAMETERS["cfg_scale"]):
-        for dns_idx, dns in enumerate(parameters.PARAMETERS["denoising_strength"]):
-            for step_idx, step in enumerate(parameters.PARAMETERS["steps"]):
+    for cfg_idx, cfg in enumerate(params["cfg_scale"]):
+        for dns_idx, dns in enumerate(params["denoising_strength"]):
+            for step_idx, step in enumerate(params["steps"]):
                 image_list = []
                 image_name = f'cfg={float(cfg):4.2f} dns={float(dns):4.2f} step={float(step):4.2f}'
-                start_seed = parameters.PARAMETERS["seed"]
-                for s in range(0, parameters.PARAMETERS["batch_width"]**2):
+                start_seed = params["seed"]
+                for s in range(0, params["batch_width"]**2):
                     seed = start_seed + s
 
                     # set payload
                     payload = {}
                     payload["init_images"] = [prompt_image]
-                    payload["prompt"] = parameters.PARAMETERS["prompt"]
-                    payload["negative_prompt"] = parameters.PARAMETERS["negative_prompt"]
-                    payload["sampler_index"] = parameters.PARAMETERS["sampler_index"]
+                    payload["prompt"] = params["prompt"]
+                    payload["negative_prompt"] = params["negative_prompt"]
+                    payload["sampler_index"] = params["sampler_index"]
                     ##payload["include_init_images"] = parameters.PARAMETERS["include_init_images"]
 
                     # set INPAINT related params
@@ -273,7 +285,7 @@ def inpaint_images(target_path):
                     update_progress()
                 
                 # export images
-                image_grid = images2grid(image_list, parameters.PARAMETERS["batch_width"], parameters.PARAMETERS["batch_width"])
+                image_grid = images2grid(image_list, params["batch_width"], params["batch_width"])
                 image_grid.save(target_path + '_GRID ' + image_name + '.png')
 
     return
@@ -287,12 +299,25 @@ def load_image_as_b64ascii(image_path):
     image_b64 = base64.b64encode(byte_data).decode('ascii')
     return image_b64
 
+
 if __name__ == '__main__':
     start_time = time.time()
     
-    target_path = prepare_environment()
-    batch_inpaint_images(target_path)
-    ##generate_all_species(target_path)
+    if len(sys.argv) < 2:
+        print('no argument')
+        sys.exit()
+
+    mode:str = sys.argv[1]
+    if (mode == "inpaint"):
+        print("inpaint mode")
+        batch_inpaint_images(parameters.INPAINT_PARAMETERS)
+    elif (mode == "text2image"):
+        print("text2image mode")
+        generate_all_species(parameters.TEXT2IMAGE_PARAMETERS)
+    else:
+        print(f"ERROR: unknown mode: {mode}")
+        sys.exit()
+
 
     end_time = time.time()
     time_lapsed = end_time - start_time
